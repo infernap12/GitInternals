@@ -6,9 +6,10 @@ import java.util.zip.InflaterInputStream
 open class AbstractGitObj(objFile: File) {
     val bytes: ByteArray
     protected val header: String
-
+    val gitRoot: File = objFile.parentFile.parentFile.parentFile
     val type: ObjectType
     val length: String
+    val hash = objFile.parentFile.name + objFile.name
 
 
 

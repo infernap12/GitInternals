@@ -1,17 +1,85 @@
 package gitinternals
 
 import java.io.File
+import kotlin.system.exitProcess
 
 // f9e0930b89b3294ea6a195f0808aafd36fafe8
 // /c/Users/james/IdeaProjects/Git Internals/.git/objects/1a
 //.git/objects/1a/f9e0930b89b3294ea6a195f0808aafd36fafe8
+var gitFolder: File = File("")
 
 fun main() {
-    val gitFolder: File = askGitFolder()
-    val objFile = askGitHash(gitFolder)
-    val obj = objFactory(objFile)
-    obj.print()
+    gitFolder = askGitFolder()
 
+    when (askCommand()) {
+        Command.CAT_FILE -> {
+            val objFile = askGitObjectHash()
+            val obj = objFactory(objFile)
+            obj.print()
+        }
+
+        Command.LIST_BRANCHES -> {
+            val heads = File(gitFolder, "refs/heads").listFiles()!!.toList()
+            val headFile = File(gitFolder, "HEAD")
+            val selectedHead = File(gitFolder, headFile.readText())
+
+            heads.sortedBy { it.name }.map {
+                val match = if (it.name == selectedHead.name) "*" else " "
+                "$match ${it.name}"
+            }.forEach(::println)
+
+        }
+
+        Command.LOG -> {
+            val branch = askBranch()
+            gitLog(branch)
+        }
+    }
+
+
+}
+
+fun gitLog(branch: File) {
+    val root = branch.parentFile.parentFile.parentFile
+    var commit: CommitObj = CommitObj(hashToFile(branch.readText().dropLast(1), root))
+    val commits = listOf(commit to false) + rLog(commit)
+    commits.joinToString("\n\n") { it.first.getLogEntry(it.second) }.let(::println)
+}
+
+fun rLog(commitObj: CommitObj): List<Pair<CommitObj, Boolean>> {
+
+    return when {
+        commitObj.parentsObjs.isEmpty() -> emptyList()
+//        commitObj.parentsObjs.size == 1 -> listOf(commitObj to false)
+        else -> {
+            val commits = commitObj.parentsObjs.mapIndexed { index, commitObj -> commitObj to (index != 0) }.reversed()
+            val next = CommitObj(commitObj.parents.first(), commitObj.gitRoot)
+            commits + rLog(next)
+        }
+    }
+}
+
+fun askBranch(): File {
+    println("Enter branch name:")
+    val file = gitFolder.resolve("refs/heads").resolve(readln())
+    if (!file.isFile || file.readBytes().size != 41) {
+        throw IllegalArgumentException("Bad branch")
+    } else return file
+}
+
+fun askCommand(): Command {
+    println("Enter command:")
+    val input = readln().replace('-', '_').uppercase()
+    while (true) {
+        val res = runCatching { Command.valueOf(input) }
+        if (res.isSuccess) {
+            return res.getOrThrow()
+        }
+    }
+}
+
+fun die() {
+    exitProcess(1)
 }
 
 fun objFactory(objFile: File): GitObj {
@@ -48,11 +116,10 @@ fun askGitFolder(): File {
     } else return file
 }
 
-fun askGitHash(gitDir: File): File {
+fun askGitObjectHash(): File {
     println("Enter git object hash:")
     val hashString = readln()
-    val objDir = File(gitDir.resolve("objects"), hashString.take(2))
-    val objFile = File(objDir, hashString.drop(2))
+    val objFile = hashToFile(hashString, gitFolder)
     if (!objFile.isFile) throw IllegalArgumentException("File not found") else return objFile
 }
 
