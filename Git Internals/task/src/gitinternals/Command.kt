@@ -1,5 +1,5 @@
 package gitinternals
 
 enum class Command {
-    CAT_FILE, LIST_BRANCHES, LOG;
+    CAT_FILE, LIST_BRANCHES, LOG, COMMIT_TREE
 }

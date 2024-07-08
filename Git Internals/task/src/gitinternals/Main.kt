@@ -34,9 +34,37 @@ fun main() {
             val branch = askBranch()
             gitLog(branch)
         }
+
+        Command.COMMIT_TREE -> {
+            val hash = askGitObjectHash(true)
+            val commitObj = CommitObj(hash)
+            commitTree(commitObj)
+
+        }
     }
 
 
+}
+
+fun commitTree(commitObj: CommitObj) {
+    val treeObj = TreeObj(commitObj.tree, commitObj.gitRoot)
+    val files = walk(treeObj)
+    files.forEach(::println)
+}
+
+fun walk(gitObj: GitObj, path: String = ""): List<String> {
+    return when (gitObj.type) {
+        ObjectType.BLOB -> listOf(path)
+        ObjectType.TREE -> {
+            val treeObj = gitObj as TreeObj
+            treeObj.objects.flatMap { (obj, name) ->
+                val newPath = if (path.isEmpty()) name else "$path/$name"
+                walk(obj, newPath)
+            }
+        }
+
+        else -> emptyList()
+    }
 }
 
 fun gitLog(branch: File) {
@@ -116,8 +144,8 @@ fun askGitFolder(): File {
     } else return file
 }
 
-fun askGitObjectHash(): File {
-    println("Enter git object hash:")
+fun askGitObjectHash(commHash: Boolean = false): File {
+    println(if (commHash) "Enter commit-hash:" else "Enter git object hash:")
     val hashString = readln()
     val objFile = hashToFile(hashString, gitFolder)
     if (!objFile.isFile) throw IllegalArgumentException("File not found") else return objFile

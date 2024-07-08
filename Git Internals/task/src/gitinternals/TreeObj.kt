@@ -5,11 +5,12 @@ import java.io.File
 
 //todo blow from orbit horrific nightmare code
 class TreeObj(objFile: File) : GitObj, AbstractGitObj(objFile) {
-    @OptIn(ExperimentalUnsignedTypes::class)
-    override fun print() {
-        println("*${this.type.name.uppercase()}*")
-//        printBytes()
-//        println(bytes.toList())
+    constructor(hash: String, gitRoot: File) : this(hashToFile(hash, gitRoot))
+
+    private val entries: List<String>
+    val objects: List<Pair<GitObj, String>>
+
+    init {
         val iterator =
             bytes.toUByteArray().dropWhile { it != UByte.MIN_VALUE }.drop(1).iterator()
         val shas = emptyList<String>().toMutableList()
@@ -39,7 +40,17 @@ class TreeObj(objFile: File) : GitObj, AbstractGitObj(objFile) {
             }
 
         }
-        shas.forEach(::println)
+        entries = shas.toList()
+
+        objects = entries.map {
+            objFactory(hashToFile(Regex("[0-9a-f]{40}").find(it)!!.value, gitRoot)) to it.split(" ").last()
+        }
+    }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    override fun print() {
+        println("*${this.type.name.uppercase()}*")
+        entries.forEach(::println)
     }
 
 }
